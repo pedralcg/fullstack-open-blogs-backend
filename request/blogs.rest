@@ -1,0 +1,29 @@
+### Get all blogs
+GET http://localhost:3003/api/blogs
+Content-Type: application/json
+
+### Add a new blog
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+
+{
+  "title": "La Importancia de las Pruebas Unitarias",
+  "author": "Desarrollador Junior",
+  "url": "http://ejemplo.com/pruebas-unitarias",
+  "likes": 12
+}
+
+### Add another blog
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+
+{
+  "title": "Guía Completa de MongoDB Atlas",
+  "author": "María Data",
+  "url": "http://ejemplo.com/mongodb-atlas-guia",
+  "likes": 25
+}
+
+### Get all blogs again to confirm additions
+GET http://localhost:3003/api/blogs
+Content-Type: application/json

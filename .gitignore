@@ -1,0 +1,5 @@
+# Directorio de módulos de Node.js
+node_modules/
+
+# Archivos de variables de entorno
+.env
