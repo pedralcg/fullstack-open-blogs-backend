@@ -1,4 +1,5 @@
-// utils/list_helper.js
+const _ = require('lodash')
+// asignación a la variable con un nombre  específico y reconocido por la comunidad
 
 const dummy = (blogs) => {
   return 1
@@ -35,8 +36,28 @@ const favoriteBlog = (blogs) => {
   }
 }
 
+const mostBlogs = (blogs) => {
+  if (blogs.length === 0) {
+    return null
+  }
+
+  // Usa _.countBy para contar los blogs por autor
+  const authorCounts = _.countBy(blogs, 'author')
+
+  // Usa _.maxBy para encontrar el autor con el mayor número de blogs
+  // _.toPairs convierte el objeto authorCounts en un array de [autor, count]
+  // Luego _.maxBy encuentra el par con el mayor count (el segundo elemento del par)
+  const topAuthorPair = _.maxBy(_.toPairs(authorCounts), _.last)
+
+  return {
+    author: topAuthorPair[0],
+    blogs: topAuthorPair[1]
+  }
+}
+
 module.exports = {
   dummy,
   totalLikes,
-  favoriteBlog
+  favoriteBlog,
+  mostBlogs
 }

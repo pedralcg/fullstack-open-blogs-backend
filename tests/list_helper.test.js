@@ -1,5 +1,3 @@
-// tests/list_helper.test.js
-
 const { test, describe } = require('node:test')
 const assert = require('node:assert')
 const listHelper = require('../utils/list_helper')
@@ -98,7 +96,7 @@ describe('total likes', () => {
 
   // Caso de prueba 3: Lista con varios blogs (usa el global)
   test('of a bigger list is calculated right', () => {
-    const result = listHelper.totalLikes(blogs) // Usa el array 'blogs' global
+    const result = listHelper.totalLikes(blogs)
     assert.strictEqual(result, 36)
   })
 })
@@ -125,11 +123,61 @@ describe('favorite blog', () => {
 
   // Caso de prueba 3: Lista con varios blogs (usa el global)
   test('of a bigger list is chosen right', () => {
-    const result = listHelper.favoriteBlog(blogs) // <--- Usa el array 'blogs' global
+    const result = listHelper.favoriteBlog(blogs)
     assert.deepStrictEqual(result, {
       title: "Canonical string reduction",
       author: "Edsger W. Dijkstra",
       likes: 12
     })
+  })
+})
+
+
+// Bloque de pruebas para mostBlogs
+describe('most blogs', () => {
+
+  // Caso de prueba: lista grande (usa el global 'blogs')
+  test('of a bigger list returns the author with most blogs', () => {
+    const result = listHelper.mostBlogs(blogs)
+    assert.deepStrictEqual(result, {
+      author: "Robert C. Martin",
+      blogs: 3
+    })
+  })
+
+  // Caso de prueba: lista vacía (usa el global 'emptyList')
+  test('of empty list is null', () => {
+    const result = listHelper.mostBlogs(emptyList)
+    assert.strictEqual(result, null)
+  })
+
+  // Caso de prueba: lista con un solo blog (usa el global 'listWithOneBlog')
+  test('when list has only one blog, returns that author', () => {
+    const result = listHelper.mostBlogs(listWithOneBlog)
+    assert.deepStrictEqual(result, {
+      author: "Edsger W. Dijkstra",
+      blogs: 1
+    })
+  })
+
+  // Caso de prueba: autores con la misma cantidad de blogs (empate)
+  // Este array es específico de este test, por eso se mantiene local
+  const blogsWithTie = [
+    { title: "Blog A", author: "Author X", likes: 1 },
+    { title: "Blog B", author: "Author Y", likes: 2 },
+    { title: "Blog C", author: "Author X", likes: 3 },
+    { title: "Blog D", author: "Author Y", likes: 4 }
+  ]
+  test('when there is a tie, returns one of the top authors', () => {
+    const result = listHelper.mostBlogs(blogsWithTie)
+    const expectedResults = [
+      { author: "Author X", blogs: 2 },
+      { author: "Author Y", blogs: 2 }
+    ]
+    // assert.ok verifica que la condición sea verdadera.
+    // .some() verifica si AL MENOS UNO de los resultados esperados coincide.
+    assert.ok(expectedResults.some(expected =>
+      expected.author === result.author && expected.blogs === result.blogs
+    ))
   })
 })
