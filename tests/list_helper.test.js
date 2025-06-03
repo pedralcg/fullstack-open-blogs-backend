@@ -181,3 +181,50 @@ describe('most blogs', () => {
     ))
   })
 })
+
+
+// Bloque de pruebas para mostLikes
+describe('most likes', () => {
+
+  // Caso de prueba: lista grande (usa el global 'blogs')
+  test('of a bigger list returns the author with most likes', () => {
+    const result = listHelper.mostLikes(blogs)
+    assert.deepStrictEqual(result, {
+      author: "Edsger W. Dijkstra",
+      likes: 17
+    })
+  })
+
+  // Caso de prueba: lista vacía (usa el global 'emptyList')
+  test('of empty list is null', () => {
+    const result = listHelper.mostLikes(emptyList)
+    assert.strictEqual(result, null)
+  })
+
+  // Caso de prueba: lista con un solo blog (usa el global 'listWithOneBlog')
+  test('when list has only one blog, returns that author with its likes', () => {
+    const result = listHelper.mostLikes(listWithOneBlog)
+    assert.deepStrictEqual(result, {
+      author: "Edsger W. Dijkstra",
+      likes: 5
+    })
+  })
+
+  // Caso de prueba: autores con la misma cantidad de likes (empate)
+  const blogsWithLikesTie = [
+    { title: "Blog A", author: "Author A", likes: 10 },
+    { title: "Blog B", author: "Author B", likes: 5 },
+    { title: "Blog C", author: "Author A", likes: 5 },
+    { title: "Blog D", author: "Author B", likes: 10 }
+  ]
+  test('when there is a tie, returns one of the top authors', () => {
+    const result = listHelper.mostLikes(blogsWithLikesTie)
+    const expectedResults = [
+      { author: "Author A", likes: 15 },
+      { author: "Author B", likes: 15 }
+    ]
+    assert.ok(expectedResults.some(expected =>
+      expected.author === result.author && expected.likes === result.likes
+    ))
+  })
+})

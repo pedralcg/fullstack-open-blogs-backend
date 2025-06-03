@@ -55,9 +55,33 @@ const mostBlogs = (blogs) => {
   }
 }
 
+
+const mostLikes = (blogs) => {
+  if (blogs.length === 0) {
+    return null
+  }
+
+  // Agrupa los blogs por autor y suma los likes de cada grupo
+  const authorLikes = _.mapValues(_.groupBy(blogs, 'author'), (authorBlogs) =>
+    _.sumBy(authorBlogs, 'likes')
+  )
+
+  // Encuentra el autor con el mayor número de likes
+  // _.toPairs convierte el objeto authorLikes en un array de [autor, totalLikes]
+  // Luego _.maxBy encuentra el par con el mayor totalLikes (el segundo elemento del par)
+  const topAuthorLikesPair = _.maxBy(_.toPairs(authorLikes), _.last)
+
+  return {
+    author: topAuthorLikesPair[0],
+    likes: topAuthorLikesPair[1]
+  }
+}
+
+
 module.exports = {
   dummy,
   totalLikes,
   favoriteBlog,
-  mostBlogs
+  mostBlogs,
+  mostLikes
 }
