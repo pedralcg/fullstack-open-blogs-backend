@@ -16,10 +16,16 @@ mongoose.connect(config.MONGODB_URI)
   })
 
 const blogSchema = new mongoose.Schema({
-  title: String,
+  title: {
+    type: String,
+    required: true
+  },
   author: String,
   url: String,
-  likes: Number
+  likes: {
+    type: Number,
+    default: 0
+  }
 })
 
 const Blog = mongoose.model('Blog', blogSchema)
@@ -27,12 +33,19 @@ const Blog = mongoose.model('Blog', blogSchema)
 app.use(cors())
 app.use(express.json())
 
-app.get('/api/blogs', (request, response) => {
-  Blog
-    .find({})
-    .then(blogs => {
-      response.json(blogs)
-    })
+// Antes:
+// app.get('/api/blogs', (request, response) => {
+//   Blog
+//     .find({})
+//     .then(blogs => {
+//       response.json(blogs)
+//     })
+// })
+
+// Después (con async/await):
+app.get('/api/blogs', async (request, response /* , next */) => {
+  const blogs = await Blog.find({}) // Usa 'await' para esperar la operación de la DB
+  response.json(blogs) // Envía la respuesta JSON
 })
 
 app.post('/api/blogs', (request, response) => {
