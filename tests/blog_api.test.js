@@ -35,6 +35,20 @@ test('blogs are returned as json and have the correct amount', async () => {
   console.log('--- blogs GET test passed ---')
 })
 
+//* Prueba 4.9: Verificar la propiedad 'id'
+test('all blogs have a unique identifier named id', async () => {
+  const response = await api.get('/api/blogs') // Obtiene todos los blogs
+
+  response.body.forEach(blog => {
+      // Comprueba que 'id' existe y es truthy
+    assert.ok(blog.id, 'Blog object should have an id property')
+    // Comprueba que '_id' no existe
+    assert.strictEqual(blog._id, undefined, 'Blog object should NOT have an _id property')
+  })
+
+  console.log('--- blogs id property test passed ---') // Log para depuración
+})
+
 //! Configuración después de TODAS las pruebas
 after(async () => {
   await mongoose.connection.close() // Cierra la conexión de Mongoose después de todas las pruebas

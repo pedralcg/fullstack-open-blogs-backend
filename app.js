@@ -28,6 +28,15 @@ const blogSchema = new mongoose.Schema({
   }
 })
 
+//! Transformar _id a id y eliminar __v
+blogSchema.set('toJSON', {
+  transform: (document, returnedObject) => {
+    returnedObject.id = returnedObject._id.toString() // Renombra _id a id
+    delete returnedObject._id // Elimina la propiedad _id
+    delete returnedObject.__v // Elimina la propiedad __v (versión de Mongoose)
+  }
+})
+
 const Blog = mongoose.model('Blog', blogSchema)
 
 app.use(cors())
