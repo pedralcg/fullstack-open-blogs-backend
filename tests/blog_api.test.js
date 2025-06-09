@@ -152,6 +152,31 @@ test('blog without url is not added and returns 400 Bad Request', async () => {
 })
 
 
+//* Prueba 4.13: DELETE /api/blogs/:id
+test('a blog can be deleted', async () => {
+  // 1. Obtener todos los blogs para tener uno para eliminar
+  const blogsAtStart = await helper.blogsInDb()
+  const blogToDelete = blogsAtStart[0] // Selecciona el primer blog para eliminar
+
+  // 2. Realizar la solicitud DELETE
+  await api
+    .delete(`/api/blogs/${blogToDelete.id}`) // Usa el ID del blog seleccionado
+    .expect(204) // Espera un código de estado 204 No Content (eliminación exitosa)
+
+  // 3. Verificar el estado de la base de datos después de la eliminación
+  const blogsAtEnd = await helper.blogsInDb()
+
+  // Verificar que el número de blogs ha disminuido en uno
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length - 1)
+
+  // Verificar que el blog eliminado ya no está en la lista de blogs
+  const titles = blogsAtEnd.map(b => b.title)
+  assert(!titles.includes(blogToDelete.title)) // Comprueba que el título NO está presente
+
+  console.log('--- blog deletion test passed ---') // Log para depuración
+})
+
+
 //! Configuración después de TODAS las pruebas
 after(async () => {
   await mongoose.connection.close() // Cierra la conexión de Mongoose después de todas las pruebas

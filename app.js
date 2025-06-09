@@ -46,33 +46,15 @@ const Blog = mongoose.model('Blog', blogSchema)
 app.use(cors())
 app.use(express.json())
 
-// Antes:
-// app.get('/api/blogs', (request, response) => {
-//   Blog
-//     .find({})
-//     .then(blogs => {
-//       response.json(blogs)
-//     })
-// })
 
-// Después (con async/await):
+//* Método GET /api/blogs/
 app.get('/api/blogs', async (request, response /* , next */) => {
   const blogs = await Blog.find({}) // Usa 'await' para esperar la operación de la DB
   response.json(blogs) // Envía la respuesta JSON
 })
 
-// Antes:
-// app.post('/api/blogs', (request, response) => {
-//   const blog = new Blog(request.body)
 
-//   blog
-//     .save()
-//     .then(result => {
-//       response.status(201).json(result)
-//     })
-// })
-
-// Después (con async/await y try...catch básico):
+//* Método POST /api/blogs/
 app.post('/api/blogs', async (request, response, next) => {
   const body = request.body
 
@@ -88,6 +70,21 @@ app.post('/api/blogs', async (request, response, next) => {
     response.status(201).json(savedBlog) // Cambia el código de estado a 201 CREATED
   } catch (error) {
     next(error) // Pasa el error al middleware de manejo de errores de Express
+  }
+})
+
+
+//* Método DELETE /api/blogs/:id
+app.delete('/api/blogs/:id', async (request, response, next) => {
+  try {
+    // Usa findByIdAndDelete para encontrar y eliminar el blog por su ID
+    await Blog.findByIdAndDelete(request.params.id)
+
+    // Si la eliminación fue exitosa, responde con 204 No Content
+    response.status(204).end()
+  } catch (error) {
+    // Pasa cualquier error (ej. ID mal formado, problemas de DB) al middleware de errores
+    next(error)
   }
 })
 
