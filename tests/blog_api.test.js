@@ -49,6 +49,37 @@ test('all blogs have a unique identifier named id', async () => {
   console.log('--- blogs id property test passed ---') // Log para depuración
 })
 
+
+//* Prueba 4.10: POST /api/blogs - Crear un blog válido
+test('a valid blog can be added ', async () => {
+  const newBlog = { // Define un nuevo objeto de blog para enviar
+    title: 'Async/Await in Express Testing',
+    author: 'Refactor Master',
+    url: 'http://example.com/async-express-testing',
+    likes: 100
+  }
+
+  // Realiza una petición POST
+  await api
+    .post('/api/blogs') // Endpoint para crear blogs
+    .send(newBlog)      // Envía el nuevo objeto de blog en el cuerpo de la solicitud
+    .expect(201)        // Espera un código de estado 201 CREATED (creación exitosa)
+    .expect('Content-Type', /application\/json/) // Espera que la respuesta sea JSON
+
+  // Después de la operación POST, obtén el estado actual de los blogs en la DB
+  const blogsAtEnd = await helper.blogsInDb()
+
+  // Verifica que el número total de blogs ha aumentado en uno
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
+
+  // Verifica que el contenido del nuevo blog esté presente en la lista de blogs
+  const titles = blogsAtEnd.map(b => b.title) // Extrae todos los títulos de los blogs
+  assert(titles.includes(newBlog.title)) // Comprueba si el título del nuevo blog está en la lista
+
+  console.log('--- valid blog added test passed ---') // Log para depuración
+})
+
+
 //! Configuración después de TODAS las pruebas
 after(async () => {
   await mongoose.connection.close() // Cierra la conexión de Mongoose después de todas las pruebas

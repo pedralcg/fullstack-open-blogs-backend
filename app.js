@@ -57,14 +57,35 @@ app.get('/api/blogs', async (request, response /* , next */) => {
   response.json(blogs) // Envía la respuesta JSON
 })
 
-app.post('/api/blogs', (request, response) => {
-  const blog = new Blog(request.body)
+// Antes:
+// app.post('/api/blogs', (request, response) => {
+//   const blog = new Blog(request.body)
 
-  blog
-    .save()
-    .then(result => {
-      response.status(201).json(result)
-    })
+//   blog
+//     .save()
+//     .then(result => {
+//       response.status(201).json(result)
+//     })
+// })
+
+// Después (con async/await y try...catch básico):
+app.post('/api/blogs', async (request, response, next) => {
+  const body = request.body
+
+  const blog = new Blog({
+    title: body.title,
+    author: body.author,
+    url: body.url,
+    likes: body.likes || 0
+  })
+
+  try { // Añade un try-catch para manejar errores de await
+    const savedBlog = await blog.save() // Usa 'await' para esperar la operación de guardado
+    response.status(201).json(savedBlog) // Cambia el código de estado a 201 CREATED
+  } catch (error) {
+    next(error) // Pasa el error al middleware de manejo de errores de Express
+  }
 })
+
 
 module.exports = app
