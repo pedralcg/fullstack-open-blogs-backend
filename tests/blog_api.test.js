@@ -108,6 +108,50 @@ test('blog without likes property defaults to 0 likes', async () => {
 })
 
 
+//* Prueba 4.12a: POST /api/blogs - Blog sin título
+test('blog without title is not added and returns 400 Bad Request', async () => {
+  const newBlog = { // Blog sin 'title'
+    author: 'Missing Title Author',
+    url: 'http://example.com/no-title-blog',
+    likes: 5
+  }
+
+  // Realiza una petición POST
+  await api
+    .post('/api/blogs')
+    .send(newBlog)
+    .expect(400) // <--- Espera un código de estado 400 Bad Request
+
+  // Verifica que el número total de blogs no haya cambiado
+  const blogsAtEnd = await helper.blogsInDb()
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+
+  console.log('--- blog without title test passed ---') // Log para depuración
+})
+
+//* Prueba 4.12b: POST /api/blogs - Blog sin URL
+test('blog without url is not added and returns 400 Bad Request', async () => {
+  const newBlog = { // Blog sin 'url'
+    title: 'Blog without URL field',
+    author: 'Missing URL Author',
+    likes: 8
+    // 'url' no está aquí
+  }
+
+  // Realiza una petición POST
+  await api
+    .post('/api/blogs')
+    .send(newBlog)
+    .expect(400) // <--- Espera un código de estado 400 Bad Request
+
+  // Verifica que el número total de blogs no haya cambiado
+  const blogsAtEnd = await helper.blogsInDb()
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+
+  console.log('--- blog without url test passed ---') // Log para depuración
+})
+
+
 //! Configuración después de TODAS las pruebas
 after(async () => {
   await mongoose.connection.close() // Cierra la conexión de Mongoose después de todas las pruebas

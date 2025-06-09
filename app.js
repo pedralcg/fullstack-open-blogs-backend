@@ -3,6 +3,7 @@ const express = require('express')
 const app = express()
 const cors = require('cors')
 const mongoose = require('mongoose')
+const middleware = require('./utils/middleware')
 const logger = require('./utils/logger')
 
 logger.info('Connecting to MongoDB')
@@ -21,7 +22,10 @@ const blogSchema = new mongoose.Schema({
     required: true
   },
   author: String,
-  url: String,
+  url: {
+    type: String,
+    required: true
+  },
   likes: {
     type: Number,
     default: 0
@@ -87,5 +91,12 @@ app.post('/api/blogs', async (request, response, next) => {
   }
 })
 
+
+//! Orden de los middlewares de error es CRÍTICO
+// Usar el middleware de endpoint desconocido DESPUÉS de todas las rutas válidas
+app.use(middleware.unknownEndpoint)
+
+// Usar el middleware de manejo de errores DESPUÉS del de unknownEndpoint
+app.use(middleware.errorHandler)
 
 module.exports = app
