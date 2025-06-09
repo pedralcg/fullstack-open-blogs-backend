@@ -177,6 +177,83 @@ test('a blog can be deleted', async () => {
 })
 
 
+//* Prueba 4.14a: PUT /api/blogs/:id - Actualización exitosa
+test('a blog can be updated (likes count)', async () => {
+  // 1. Obtener todos los blogs para seleccionar uno para actualizar
+  const blogsAtStart = await helper.blogsInDb()
+  const blogToUpdate = blogsAtStart[0] // Selecciona el primer blog
+  const originalLikes = blogToUpdate.likes
+
+  // 2. Definir los datos de actualización (solo likes en este caso)
+  const updatedData = {
+    ...blogToUpdate, // Mantén todas las propiedades existentes
+    likes: originalLikes + 10 // Incrementa los likes
+  }
+
+  // 3. Realizar la solicitud PUT
+  const response = await api
+    .put(`/api/blogs/${blogToUpdate.id}`) // PUT al ID específico
+    .send(updatedData) // Envía el objeto con los likes actualizados
+    .expect(200) // Espera un código de estado 200 OK
+    .expect('Content-Type', /application\/json/) // Espera que la respuesta sea JSON
+
+  // 4. Verificar que el blog devuelto en la respuesta tiene los likes actualizados
+  assert.strictEqual(response.body.likes, updatedData.likes, 'Returned blog should have updated likes')
+
+  // 5. Verificar el estado de la base de datos después de la actualización
+  const blogsAtEnd = await helper.blogsInDb()
+  const updatedBlogInDb = blogsAtEnd.find(blog => blog.id === blogToUpdate.id)
+  assert.strictEqual(updatedBlogInDb.likes, updatedData.likes, 'Blog in DB should have updated likes')
+
+  console.log('--- blog update (likes) test passed ---')
+})
+
+//* Prueba 4.14b: PUT /api/blogs/:id - Actualizar un blog inexistente (404)
+test('updating a non-existent blog returns 404 Not Found', async () => {
+  const nonExistentId = await helper.nonExistingId() // Obtiene un ID que no existe
+  const updateData = {
+    title: 'Non-existent blog title',
+    author: 'Unknown',
+    url: 'http://example.com/non-existent',
+    likes: 1000
+  }
+
+  // Realiza la solicitud PUT a un ID que no existe
+  await api
+    .put(`/api/blogs/${nonExistentId}`)
+    .send(updateData)
+    .expect(404) // Espera un código de estado 404 Not Found
+
+  // Verifica que el número de blogs en la base de datos no ha cambiado
+  const blogsAtEnd = await helper.blogsInDb()
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+
+  console.log('--- update non-existent blog test passed ---')
+})
+
+//* Prueba 4.14c: PUT /api/blogs/:id - ID mal formado (400 Bad Request)
+test('updating with malformed id returns 400 Bad Request', async () => {
+  const malformedId = 'invalidid123' // Un ID que no tiene el formato correcto de MongoDB ObjectId
+  const updateData = {
+    title: 'Malformed ID test',
+    author: 'Invalid Test',
+    url: 'http://invalid.com',
+    likes: 1
+  }
+
+  await api
+    .put(`/api/blogs/${malformedId}`)
+    .send(updateData)
+    .expect(400) // Espera un código de estado 400 Bad Request
+
+  // Verifica que el número de blogs en la base de datos no ha cambiado
+  const blogsAtEnd = await helper.blogsInDb()
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+
+  console.log('--- update with malformed id test passed ---')
+})
+
+
 //! Configuración después de TODAS las pruebas
 after(async () => {
   await mongoose.connection.close() // Cierra la conexión de Mongoose después de todas las pruebas

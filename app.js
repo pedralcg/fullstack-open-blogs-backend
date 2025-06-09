@@ -89,6 +89,38 @@ app.delete('/api/blogs/:id', async (request, response, next) => {
 })
 
 
+//* Método PUT /api/blogs/:id
+app.put('/api/blogs/:id', async (request, response, next) => {
+  const body = request.body // El cuerpo de la solicitud contiene los datos actualizados
+  const id = request.params.id // El ID del blog a actualizar
+
+  // Crea un objeto con solo las propiedades que quieres actualizar.
+  const blog = {
+    title: body.title, // Incluir para mantener los valores existentes si no se envían
+    author: body.author, // y asegurar que Mongoose no los elimine
+    url: body.url,
+    likes: body.likes, // Este es el campo principal a actualizar
+  }
+
+  try {
+    // findByIdAndUpdate encuentra un documento por ID y lo actualiza.
+    const updatedBlog = await Blog.findByIdAndUpdate(id, blog, { new: true, runValidators: true, context: 'query' })
+
+    // Si updatedBlog es null, significa que no se encontró el blog con ese ID.
+    if (updatedBlog) {
+      response.json(updatedBlog) // Responde con el blog actualizado
+    } else {
+      // Si no se encontró el blog, responde con 404 Not Found.
+      response.status(404).end()
+    }
+
+  } catch (error) {
+    // Pasa cualquier error (ej. ID mal formado, validación fallida) al middleware de errores
+    next(error)
+  }
+})
+
+
 //! Orden de los middlewares de error es CRÍTICO
 // Usar el middleware de endpoint desconocido DESPUÉS de todas las rutas válidas
 app.use(middleware.unknownEndpoint)
