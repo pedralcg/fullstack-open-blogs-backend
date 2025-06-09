@@ -80,6 +80,34 @@ test('a valid blog can be added ', async () => {
 })
 
 
+//* Prueba 4.11: Verificar likes por defecto
+test('blog without likes property defaults to 0 likes', async () => {
+  const newBlog = { // Define un nuevo objeto de blog sin la propiedad 'likes'
+    title: 'Blog without likes field',
+    author: 'Default Likes Author',
+    url: 'http://example.com/no-likes-blog'
+    // 'likes' no está aquí
+  }
+
+  // Realiza una petición POST
+  const response = await api
+    .post('/api/blogs')
+    .send(newBlog)
+    .expect(201) // Espera un código de estado 201 CREATED
+    .expect('Content-Type', /application\/json/)
+
+  // Verifica que el blog devuelto en la respuesta tenga 0 likes
+  assert.strictEqual(response.body.likes, 0, 'Returned blog should have 0 likes')
+
+  // Opcional: También puedes verificar el estado de la base de datos
+  const blogsAtEnd = await helper.blogsInDb()
+  const savedBlog = blogsAtEnd.find(blog => blog.title === newBlog.title)
+  assert.strictEqual(savedBlog.likes, 0, 'Saved blog in DB should have 0 likes')
+
+  console.log('--- blog without likes test passed ---') // Log para depuración
+})
+
+
 //! Configuración después de TODAS las pruebas
 after(async () => {
   await mongoose.connection.close() // Cierra la conexión de Mongoose después de todas las pruebas
