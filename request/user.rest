@@ -1,0 +1,53 @@
+### Crear un nuevo usuario válido
+POST http://localhost:3003/api/users
+Content-Type: application/json
+
+{
+    "username": "pedralcg",
+    "name": "Pedro Alcoba",
+    "password": "validpassword123"
+}
+
+### Crear otro usuario 
+POST http://localhost:3003/api/users
+Content-Type: application/json
+
+{
+    "username": "newuser1",
+    "name": "New User One",
+    "password": "validpassword123"
+}
+
+### Intentar crear un usuario con username duplicado (debería fallar con 400)
+POST http://localhost:3003/api/users
+Content-Type: application/json
+
+{
+    "username": "newuser1",
+    "name": "Another One",
+    "password": "anotherpass"
+}
+
+### Intentar crear un usuario con password muy corta (debería fallar con 400)
+POST http://localhost:3003/api/users
+Content-Type: application/json
+
+{
+    "username": "shortpass",
+    "name": "Short Pass User",
+    "password": "ab"
+}
+
+### Intentar crear un usuario con username muy corto (debería fallar con 400)
+POST http://localhost:3003/api/users
+Content-Type: application/json
+
+{
+    "username": "ab",
+    "name": "Short Username User",
+    "password": "longpassword"
+}
+
+### Obtener todos los usuarios
+GET http://localhost:3003/api/users
+Accept: application/json

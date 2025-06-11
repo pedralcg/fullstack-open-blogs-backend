@@ -11,7 +11,7 @@ const errorHandler = (error, request, response, next) => {
   // Loguea el mensaje de error para depuración
   logger.error(error.message)
 
-  // Manejo específico para errores de validación de Mongoose (como 'required: true')
+  // Maneja errores de validación de Mongoose (como 'required' o 'minlength' de username)
   if (error.name === 'ValidationError') {
     return response.status(400).json({ error: error.message })
   }
@@ -19,6 +19,16 @@ const errorHandler = (error, request, response, next) => {
   // Manejo específico para errores de CastError
   if (error.name === 'CastError') {
     return response.status(400).send({ error: 'malformed id' })
+  } 
+  
+  // Maneja errores de clave duplicada de MongoDB (para 'username: unique')
+  else if (error.code === 11000 && error.name === 'MongoServerError') {
+    return response.status(400).json({ error: 'expected `username` to be unique' })
+  } 
+  
+  // Token no valido
+  else if (error.name === 'JsonWebTokenError') {
+    return response.status(401).json({ error: 'token invalid' })
   }
 
   // Para otros tipos de errores, pasa el control al siguiente middleware

@@ -3,6 +3,7 @@ const express = require('express')
 const app = express()
 const cors = require('cors')
 const mongoose = require('mongoose')
+const usersRouter = require('./controllers/users') // <--- ¡Importa el nuevo router de usuarios!
 const middleware = require('./utils/middleware')
 const logger = require('./utils/logger')
 
@@ -32,7 +33,7 @@ const blogSchema = new mongoose.Schema({
   }
 })
 
-//! Transformar _id a id y eliminar __v
+// Configura la transformación de los objetos Blog a JSON para la API
 blogSchema.set('toJSON', {
   transform: (document, returnedObject) => {
     returnedObject.id = returnedObject._id.toString() // Renombra _id a id
@@ -43,18 +44,21 @@ blogSchema.set('toJSON', {
 
 const Blog = mongoose.model('Blog', blogSchema)
 
+// Middlewares estándar
 app.use(cors())
 app.use(express.json())
 
 
-//* Método GET /api/blogs/
+//! --- Rutas de la API ---
+
+//* Método GET /api/blogs/ - Obtener todos los blogs
 app.get('/api/blogs', async (request, response /* , next */) => {
   const blogs = await Blog.find({}) // Usa 'await' para esperar la operación de la DB
   response.json(blogs) // Envía la respuesta JSON
 })
 
 
-//* Método POST /api/blogs/
+//* Método POST /api/blogs/ - Crear un nuevo blog
 app.post('/api/blogs', async (request, response, next) => {
   const body = request.body
 
@@ -74,7 +78,7 @@ app.post('/api/blogs', async (request, response, next) => {
 })
 
 
-//* Método DELETE /api/blogs/:id
+//* Método DELETE /api/blogs/:id - Eliminar un blog
 app.delete('/api/blogs/:id', async (request, response, next) => {
   try {
     // Usa findByIdAndDelete para encontrar y eliminar el blog por su ID
@@ -89,7 +93,7 @@ app.delete('/api/blogs/:id', async (request, response, next) => {
 })
 
 
-//* Método PUT /api/blogs/:id
+//* Método PUT /api/blogs/:id - Actualizar un blog
 app.put('/api/blogs/:id', async (request, response, next) => {
   const body = request.body // El cuerpo de la solicitud contiene los datos actualizados
   const id = request.params.id // El ID del blog a actualizar
@@ -120,12 +124,19 @@ app.put('/api/blogs/:id', async (request, response, next) => {
   }
 })
 
+//! Monta el router de usuarios en la ruta base /api/users
+app.use('/api/users', usersRouter)
 
-//! Orden de los middlewares de error es CRÍTICO
-// Usar el middleware de endpoint desconocido DESPUÉS de todas las rutas válidas
+
+//! --- Middlewares de Manejo de Errores ---
+// Importante: Estos middlewares deben ir DESPUÉS de todas las rutas,
+// ya que Express los procesa en orden.
+
+// Middleware para manejar solicitudes a endpoints desconocidos (404 Not Found)
 app.use(middleware.unknownEndpoint)
 
-// Usar el middleware de manejo de errores DESPUÉS del de unknownEndpoint
+// Middleware centralizado para el manejo de errores (ValidationError, CastError, etc.)
 app.use(middleware.errorHandler)
+
 
 module.exports = app
