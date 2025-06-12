@@ -30,6 +30,10 @@ const blogSchema = new mongoose.Schema({
   likes: {
     type: Number,
     default: 0
+  },
+  user: {
+    type: mongoose.Schema.Types.ObjectId, // El tipo es un ObjectId de Mongoose
+    ref: 'User' // La referencia es al modelo 'User'
   }
 })
 
@@ -52,9 +56,12 @@ app.use(express.json())
 //! --- Rutas de la API ---
 
 //* Método GET /api/blogs/ - Obtener todos los blogs
-app.get('/api/blogs', async (request, response /* , next */) => {
-  const blogs = await Blog.find({}) // Usa 'await' para esperar la operación de la DB
-  response.json(blogs) // Envía la respuesta JSON
+app.get('/api/blogs', async (request, response) => {
+  //* Añadir .populate() aquí!
+  const blogs = await Blog.find({}).populate('user', { username: 1, name: 1 })
+  // { username: 1, name: 1 } significa que solo queremos los campos 'username' y 'name' del usuario.
+  // (el id siempre se incluye por defecto)
+  response.json(blogs)
 })
 
 
@@ -62,21 +69,35 @@ app.get('/api/blogs', async (request, response /* , next */) => {
 app.post('/api/blogs', async (request, response, next) => {
   const body = request.body
 
+  try {
+    //* Encontrar un usuario para asignar el blog
+    const users = await mongoose.model('User').find({}) // Obtiene todos los usuarios
+    if (users.length === 0) {
+      // Si no hay usuarios, no podemos asignar un creador.
+      return response.status(400).json({ error: 'cannot create blog without an existing user' })
+    }
+    const user = users[0] // Selecciona el primer usuario de la base de datos
+
   const blog = new Blog({
     title: body.title,
     author: body.author,
     url: body.url,
-    likes: body.likes || 0
+    likes: body.likes || 0,
+    user: user._id
   })
 
-  try { // Añade un try-catch para manejar errores de await
-    const savedBlog = await blog.save() // Usa 'await' para esperar la operación de guardado
-    response.status(201).json(savedBlog) // Cambia el código de estado a 201 CREATED
+  const savedBlog = await blog.save() // Guarda el blog
+
+    //* Añadir el blog a la lista de blogs del usuario
+    user.blogs = user.blogs.concat(savedBlog._id)
+    await user.save() // Guarda el usuario actualizado con la referencia al nuevo blog
+
+    response.status(201).json(savedBlog) // Responde con el blog guardado
+    // Nota: Para este ejercicio no se pide popular el user en la respuesta POST, pero lo haremos en el GET.
   } catch (error) {
-    next(error) // Pasa el error al middleware de manejo de errores de Express
+    next(error)
   }
 })
-
 
 //* Método DELETE /api/blogs/:id - Eliminar un blog
 app.delete('/api/blogs/:id', async (request, response, next) => {

@@ -27,3 +27,14 @@ Content-Type: application/json
 ### Get all blogs again to confirm additions
 GET http://localhost:3003/api/blogs
 Content-Type: application/json
+
+### Crear un blog con un usuario asignado (temporalmente, aún no protegido por token)
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+
+{
+    "title": "My First Blog Post by New User",
+    "author": "A. N. Other",
+    "url": "http://example.com/first-blog",
+    "likes": 5
+}
