@@ -1,5 +1,8 @@
 
 const mongoose = require('mongoose')
+const User = require('../models/user')
+const bcrypt = require('bcrypt')
+
 
 // Datos iniciales de blogs para tus pruebas de integración
 const initialBlogs = [
@@ -29,6 +32,28 @@ const initialBlogs = [
   },
 ]
 
+
+// Datos iniciales de USUARIOS para tus pruebas de integración
+const initialUsers = [
+  {
+    username: 'testuser1',
+    name: 'Test User One',
+    password: 'password123', // Contraseña en texto plano para bcrypt
+  },
+  {
+    username: 'testuser2',
+    name: 'Test User Two',
+    password: 'password456',
+  },
+]
+
+// Función auxiliar para obtener todos los usuarios de la base de datos de prueba
+const usersInDb = async () => {
+  const users = await User.find({})
+  return users.map(u => u.toJSON())
+}
+
+
 // Función auxiliar para obtener todos los blogs almacenados actualmente en la base de datos de prueba
 // Se obtiene el modelo 'Blog' de la instancia global de Mongoose.
 const blogsInDb = async () => {
@@ -50,5 +75,7 @@ const nonExistingId = async () => {
 module.exports = {
   initialBlogs,
   blogsInDb,
-  nonExistingId
+  nonExistingId,
+  initialUsers,
+  usersInDb,
 }
