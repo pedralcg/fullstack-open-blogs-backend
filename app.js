@@ -37,7 +37,7 @@ app.use(middleware.tokenExtractor)
 
 app.use('/api/users', usersRouter)
 app.use('/api/login', loginRouter)
-app.use('/api/blogs', blogsRouter)
+app.use('/api/blogs', middleware.userExtractor, blogsRouter) // userExtractor solo para /api/blogs
 
 
 //! --- Middlewares de Manejo de Errores ---

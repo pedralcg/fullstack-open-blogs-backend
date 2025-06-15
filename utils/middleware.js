@@ -1,4 +1,6 @@
 const logger = require('./logger') // Importa tu logger para mostrar errores
+const jwt = require('jsonwebtoken')
+const User = require('../models/user') 
 
 
 // Middleware para extraer el token del encabezado Authorization
@@ -11,6 +13,39 @@ const tokenExtractor = (request, response, next) => {
   }
   next() // Pasa el control al siguiente middleware/ruta
 }
+
+
+// Middleware userExtractor
+const userExtractor = async (request, response, next) => {
+  // Asume que tokenExtractor ya ha puesto el token en request.token
+  const token = request.token;
+
+  if (!token) {
+    // Si no hay token, no podemos extraer el usuario. Pasa el control.
+    // Las rutas posteriores deberán manejar el 401 si requieren autenticación.
+    request.user = null; // Para claridad, asigna null
+    return next();
+  }
+
+  try {
+    const decodedToken = jwt.verify(token, process.env.SECRET);
+
+    if (!decodedToken.id) {
+      // Si el token es inválido o no tiene ID, no se puede extraer el usuario.
+      request.user = null; // Asigna null
+      return next();
+    }
+
+    // Encuentra al usuario y lo guarda en request.user
+    request.user = await User.findById(decodedToken.id);
+    next(); // Pasa el control al siguiente middleware/ruta
+  } catch (error) {
+    // Captura errores de jwt.verify (JsonWebTokenError, TokenExpiredError)
+    // y de búsqueda de usuario (si fuera el caso).
+    // Pasa el error al errorHandler.
+    next(error);
+  }
+};
 
 
 // Middleware para manejar errores de solicitudes desconocidas
@@ -52,6 +87,7 @@ const errorHandler = (error, request, response, next) => {
 
 module.exports = {
   tokenExtractor,
+  userExtractor,
   unknownEndpoint,
   errorHandler
 }
