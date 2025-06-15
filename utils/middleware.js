@@ -1,9 +1,23 @@
 const logger = require('./logger') // Importa tu logger para mostrar errores
 
+
+// Middleware para extraer el token del encabezado Authorization
+const tokenExtractor = (request, response, next) => {
+  const authorization = request.get('authorization')
+  if (authorization && authorization.startsWith('Bearer ')) {
+    request.token = authorization.replace('Bearer ', '') // Asigna el token a request.token
+  } else {
+    request.token = null // Si no hay token Bearer, asigna null
+  }
+  next() // Pasa el control al siguiente middleware/ruta
+}
+
+
 // Middleware para manejar errores de solicitudes desconocidas
 const unknownEndpoint = (request, response) => {
   response.status(404).send({ error: 'unknown endpoint' })
 }
+
 
 // Middleware para manejar errores.
 // Tiene 4 parámetros: error, request, response, next.
@@ -37,6 +51,7 @@ const errorHandler = (error, request, response, next) => {
 }
 
 module.exports = {
+  tokenExtractor,
   unknownEndpoint,
   errorHandler
 }

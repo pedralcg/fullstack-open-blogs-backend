@@ -3,14 +3,6 @@ const Blog = require('../models/blog') // <--- ¡Importa el modelo Blog!
 const User = require('../models/user') // <--- ¡Importa el modelo User!
 const jwt = require('jsonwebtoken') // <--- ¡Importa jwt!
 
-// --- Función auxiliar para extraer el token del encabezado ---
-const getTokenFrom = request => {
-  const authorization = request.get('authorization')
-  if (authorization && authorization.startsWith('Bearer ')) {
-    return authorization.replace('Bearer ', '')
-  }
-  return null
-}
 
 // --- Ruta GET /api/blogs - Obtener todos los blogs ---
 blogsRouter.get('/', async (request, response) => {
@@ -21,7 +13,7 @@ blogsRouter.get('/', async (request, response) => {
 // --- Ruta POST /api/blogs - Crear un nuevo blog ( PROTEGIDA POR TOKEN) ---
 blogsRouter.post('/', async (request, response, next) => {
   const body = request.body
-  const token = getTokenFrom(request) // Extrae el token
+  const token = request.token // Accede al Token desde request.token!
 
   try {
     // 1. Verificar y decodificar el token

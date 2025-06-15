@@ -29,6 +29,10 @@ app.use(cors())
 app.use(express.json())
 
 
+// Middleware para extraer el token
+app.use(middleware.tokenExtractor)
+
+
 //! --- Rutas de la API (Montaje de routers) ---
 
 app.use('/api/users', usersRouter)
