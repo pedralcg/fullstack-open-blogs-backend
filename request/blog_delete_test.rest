@@ -1,0 +1,72 @@
+### 1. LOGIN para obtener un TOKEN VÁLIDO (Necesitarás un usuario existente)
+POST http://localhost:3003/api/login
+Content-Type: application/json
+
+{
+    "username": "newuser1",
+    "password": "validpassword123" 
+}
+
+### 2. Crear un blog CON EL TOKEN OBTENIDO (Esto nos dará un Blog ID para eliminar)
+# ¡IMPORTANTE! Copia el 'token' de la respuesta de la solicitud #1 y pégalo aquí
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+Authorization: Bearer PEGA_AQUÍ_EL_TOKEN_OBTENIDO_DEL_PASO_1
+
+{
+    "title": "Blog para ser eliminado por su creador",
+    "author": "Creador Designado",
+    "url": "http://example.com/blog-to-delete-test",
+    "likes": 7
+}
+// Después de ejecutar, copia el "id" del blog de la respuesta. Lo necesitarás para los pasos siguientes.
+
+### 3. Intentar ELIMINAR el blog SIN TOKEN (Debe fallar con 401 Unauthorized)
+# ¡IMPORTANTE! Pega el ID del blog obtenido del paso #2
+DELETE http://localhost:3003/api/blogs/PEGA_AQUÍ_EL_ID_DEL_BLOG_OBTENIDO_DEL_PASO_2
+Content-Type: application/json
+
+
+### 4. Intentar ELIMINAR el blog con TOKEN INVÁLIDO (Debe fallar con 401 Unauthorized)
+# ¡IMPORTANTE! Pega el ID del blog obtenido del paso #2
+DELETE http://localhost:3003/api/blogs/PEGA_AQUÍ_EL_ID_DEL_BLOG_OBTENIDO_DEL_PASO_2
+Content-Type: application/json
+Authorization: Bearer ESTO.NO.ES.UN.TOKEN.VALIDO
+
+
+# ### 5. Intentar ELIMINAR el blog con TOKEN DE OTRO USUARIO (Debe fallar con 403 Forbidden)
+# # Para este paso, necesitas:
+# #   a) Un segundo usuario creado en tu DB (ej. "otheruser", "otherpass").
+# #   b) Hacer LOGIN con ese segundo usuario para obtener su token.
+# #   c) Pegar el token de ese segundo usuario aquí.
+# # ¡IMPORTANTE! Pega el ID del blog obtenido del paso #2
+# # ¡IMPORTANTE! Pega el TOKEN del SEGUNDO USUARIO aquí
+# POST http://localhost:3003/api/login
+# Content-Type: application/json
+
+# {
+#     "username": "otheruser",         // Reemplaza con un segundo username existente
+#     "password": "otherpass"          // Reemplaza con la contraseña correcta del segundo usuario
+# }
+# // Después de ejecutar, copia el "token" de la respuesta y pégalo en el siguiente DELETE.
+
+# DELETE http://localhost:3003/api/blogs/PEGA_AQUÍ_EL_ID_DEL_BLOG_OBTENIDO_DEL_PASO_2
+# Content-Type: application/json
+# Authorization: Bearer PEGA_AQUÍ_EL_TOKEN_DEL_SEGUNDO_USUARIO
+
+
+### 6. ELIMINAR el blog con TOKEN DEL CREADOR (Debe ser exitoso con 204 No Content)
+# ¡IMPORTANTE! Pega el ID del blog obtenido del paso #2
+# ¡IMPORTANTE! Pega el TOKEN original del creador (obtenido del paso #1)
+DELETE http://localhost:3003/api/blogs/PEGA_AQUÍ_EL_ID_DEL_BLOG_OBTENIDO_DEL_PASO_2
+Content-Type: application/json
+Authorization: Bearer PEGA_AQUÍ_EL_TOKEN_OBTENIDO_DEL_PASO_1
+
+
+### 7. Verificar que el blog YA NO existe (GET /api/blogs)
+GET http://localhost:3003/api/blogs
+Accept: application/json
+
+### 8. Verificar que la referencia al blog se eliminó del usuario (GET /api/users)
+GET http://localhost:3003/api/users
+Accept: application/json

@@ -58,12 +58,53 @@ blogsRouter.post('/', async (request, response, next) => {
   }
 })
 
-// --- Ruta DELETE /api/blogs/:id - Eliminar un blog ---
+// --- Ruta DELETE /api/blogs/:id - Eliminar un blog (PROTEGIDA Y AUTORIZADA) ---
 blogsRouter.delete('/:id', async (request, response, next) => {
+  const token = request.token
+  const blogId = request.params.id
+
   try {
-    await Blog.findByIdAndDelete(request.params.id)
+    // 1. Verificar el token JWT
+    const decodedToken = jwt.verify(token, process.env.SECRET)
+
+    // 2. Verificar que el token contiene un ID de usuario
+    if (!decodedToken.id) {
+      return response.status(401).json({ error: 'token invalid or missing user ID' })
+    }
+
+    // 3. Buscar el blog que se quiere eliminar
+    const blogToDelete = await Blog.findById(blogId)
+
+    // 4. Si el blog no existe, devolver 204 No Content (operación idempotente)
+    // Opcional: Podrías devolver 404 si prefieres ser más estricto, pero 204 es común para DELETE.
+    if (!blogToDelete) {
+      return response.status(204).end()
+    }
+
+    // 5. Verificar si el usuario que intenta eliminar es el creador del blog
+    // Convertimos el ObjectId de blog.user a string para la comparación
+    if (blogToDelete.user.toString() !== decodedToken.id.toString()) {
+      // 403 Forbidden
+      return response.status(403).json({ error: 'user not authorized to delete this blog' })
+    }
+
+    // 6. Si el usuario es el creador, proceder con la eliminación del blog
+    await Blog.findByIdAndDelete(blogId)
+
+    // 7. Eliminar la referencia del blog del array de blogs del usuario
+    // Encuentra al usuario por el ID del token decodificado
+    const user = await User.findById(decodedToken.id)
+    if (user) {
+      // Filtra el array de blogs del usuario para remover el ID del blog eliminado
+      user.blogs = user.blogs.filter(blogRef => blogRef.toString() !== blogId.toString())
+      await user.save() // Guarda el usuario con la referencia eliminada
+    }
+
+    // 8. Responder con 204 No Content indicando éxito
     response.status(204).end()
+
   } catch (error) {
+    // Pasa errores (como JsonWebTokenError, CastError para ID de blog malformado) al middleware de errores
     next(error)
   }
 })
