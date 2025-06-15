@@ -1,0 +1,52 @@
+### 1. Intentar crear un blog SIN TOKEN (debe fallar con 401 Unauthorized)
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+
+{
+    "title": "Blog without token",
+    "author": "Anonymous",
+    "url": "http://example.com/no-token-blog",
+    "likes": 1
+}
+
+### 2. Intentar crear un blog con TOKEN INVÁLIDO (debe fallar con 401 Unauthorized)
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+Authorization: Bearer ESTO.NO.ES.UN.TOKEN.VALIDO
+
+{
+    "title": "Blog with invalid token",
+    "author": "Hacker",
+    "url": "http://example.com/invalid-token-blog",
+    "likes": 1
+}
+
+### 3. LOGIN para obtener un TOKEN VÁLIDO (necesitarás el username y password de un usuario existente)
+POST http://localhost:3003/api/login
+Content-Type: application/json
+
+{
+    "username": "newuser1",
+    "password": "validpassword123"
+}
+
+### 4. Crear un blog CON TOKEN VÁLIDO (debe ser exitoso con 201 Created)
+# ¡IMPORTANTE! Copia el 'token' de la respuesta de la solicitud #3 y pégalo aquí
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+Authorization: Bearer PEGA_AQUÍ_EL_TOKEN_OBTENIDO_ARRIBA
+
+{
+    "title": "Blog created by authenticated user",
+    "author": "Auth User",
+    "url": "http://example.com/authenticated-blog",
+    "likes": 15
+}
+
+### 5. Verificar que el blog creado se asocia al usuario (GET /api/blogs)
+GET http://localhost:3003/api/blogs
+Accept: application/json
+
+### 6. Verificar que el blog se lista bajo el usuario (GET /api/users)
+GET http://localhost:3003/api/users
+Accept: application/json
