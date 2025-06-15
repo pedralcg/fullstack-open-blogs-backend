@@ -1,0 +1,26 @@
+### 1. Iniciar sesión con credenciales correctas
+POST http://localhost:3003/api/login
+Content-Type: application/json
+
+{
+    "username": "newuser1",
+    "password": "validpassword123"
+}
+
+### 2. Iniciar sesión con contraseña incorrecta (debería fallar con 401)
+POST http://localhost:3003/api/login
+Content-Type: application/json
+
+{
+    "username": "newuser1",
+    "password": "wrongpassword"
+}
+
+### 3. Iniciar sesión con usuario inexistente (debería fallar con 401)
+POST http://localhost:3003/api/login
+Content-Type: application/json
+
+{
+    "username": "nonexistent",
+    "password": "anypassword"
+}

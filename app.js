@@ -3,7 +3,8 @@ const express = require('express')
 const app = express()
 const cors = require('cors')
 const mongoose = require('mongoose')
-const usersRouter = require('./controllers/users') // <--- ¡Importa el nuevo router de usuarios!
+const usersRouter = require('./controllers/users')
+const loginRouter = require('./controllers/login')
 const middleware = require('./utils/middleware')
 const logger = require('./utils/logger')
 
@@ -147,6 +148,9 @@ app.put('/api/blogs/:id', async (request, response, next) => {
 
 //! Monta el router de usuarios en la ruta base /api/users
 app.use('/api/users', usersRouter)
+
+//! Monta el router de login en la ruta base /api/login
+app.use('/api/login', loginRouter) // Monta el router de login en /api/login
 
 
 //! --- Middlewares de Manejo de Errores ---
