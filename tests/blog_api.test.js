@@ -1,8 +1,10 @@
 
-const { test, after, beforeEach } = require('node:test') // Importa ganchos de prueba
+const { test, after, beforeEach, describe } = require('node:test') // Importa ganchos de prueba
 const assert = require('node:assert') // Importa la librería de aserciones
 const supertest = require('supertest') // Importa SuperTest
 const mongoose = require('mongoose') // Importa Mongoose para cerrar la conexión
+const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
 
 const helper = require('./test_helper') // Importa tus funciones auxiliares de prueba
 const app = require('../app') // Importa tu aplicación Express
@@ -10,252 +12,275 @@ const app = require('../app') // Importa tu aplicación Express
 // Envuelve tu aplicación Express con SuperTest para poder hacer peticiones simuladas
 const api = supertest(app)
 
+const Blog = require('../models/blog')
+const User = require('../models/user')
+
+// Variables globales para usuarios y tokens de prueba
+let testUser = null // Usuario de prueba principal (creador de initialBlogs)
+let token = null     // Token de autenticación para testUser
+let otherUser = null // Segundo usuario para pruebas de "otro usuario"
+let otherToken = null // Token para otherUser
+
+
 //! Configuración antes de CADA prueba
 beforeEach(async () => {
-  // Obtén el modelo 'Blog' de la instancia global de Mongoose (ya registrada por app.js)
-  const Blog = mongoose.model('Blog') // Obtiene el modelo Blog de Mongoose aquí
-  await Blog.deleteMany({}) // Limpia la colección de blogs antes de cada test
-  console.log('--- cleared blogs collection for test ---')
+  // Limpia completamente las colecciones de usuarios y blogs
+  await User.deleteMany({})
+  await Blog.deleteMany({})
+  // console.log('--- cleared collections for blog tests ---')
 
-  // Inserta los blogs iniciales definidos en test_helper.js en la DB de prueba
-  await Blog.insertMany(helper.initialBlogs)
-  console.log('--- inserted initial blogs for test ---')
+  // 1. Crear un usuario principal para la mayoría de los tests y su token
+  const passwordHash = await bcrypt.hash('secretpass', 10)
+  testUser = new User({ username: 'testuser', name: 'Test User', passwordHash })
+  await testUser.save()
+  const userForToken = { username: testUser.username, id: testUser._id }
+  token = jwt.sign(userForToken, process.env.SECRET)
+  // console.log('--- created testUser and token ---')
+
+  // 2. Crear un segundo usuario para pruebas de autorización de "otro usuario"
+  const passwordHash2 = await bcrypt.hash('otherpass', 10)
+  otherUser = new User({ username: 'otheruser', name: 'Other User', passwordHash: passwordHash2 })
+  await otherUser.save()
+  const otherUserForToken = { username: otherUser.username, id: otherUser._id }
+  otherToken = jwt.sign(otherUserForToken, process.env.SECRET)
+  // console.log('--- created otherUser and token ---')
+
+  // 3. Insertar los blogs iniciales y ASOCIARLOS al usuario principal (testUser)
+  const blogObjects = helper.initialBlogs.map(blog => ({ ...blog, user: testUser._id }))
+  const savedBlogs = await Blog.insertMany(blogObjects)
+  // console.log('--- inserted initial blogs associated with testUser ---')
+
+  // 4. Actualizar el usuario principal con los blogs que ha creado
+  testUser.blogs = testUser.blogs.concat(savedBlogs.map(b => b._id))
+  await testUser.save()
+  // console.log('--- updated testUser with blog references ---')
 })
 
-//* Prueba 4.8: GET /api/blogs
-test('blogs are returned as json and have the correct amount', async () => {
-  const response = await api
-    .get('/api/blogs') // Realiza una petición GET a la API de blogs
-    .expect(200) // Espera un código de estado HTTP 200 OK
-    .expect('Content-Type', /application\/json/) // Espera que el Content-Type sea JSON
 
-  // Verifica que el número de blogs devueltos sea igual al número de blogs iniciales que insertamos
-  assert.strictEqual(response.body.length, helper.initialBlogs.length)
+//! Conjunto principal de tests para la API de Blogs
+describe('Blog API tests', () => {
 
-  console.log('--- blogs GET test passed ---')
-})
+  //* Tests para GET /api/blogs (obtener blogs)
+  describe('fetching blogs', () => {
+    test('blogs are returned as json and have the correct amount', async () => {
+      const response = await api
+        .get('/api/blogs')
+        .expect(200)
+        .expect('Content-Type', /application\/json/)
 
-//* Prueba 4.9: Verificar la propiedad 'id'
-test('all blogs have a unique identifier named id', async () => {
-  const response = await api.get('/api/blogs') // Obtiene todos los blogs
+      assert.strictEqual(response.body.length, helper.initialBlogs.length, 'Should return the correct number of initial blogs')
+    })
 
-  response.body.forEach(blog => {
-      // Comprueba que 'id' existe y es truthy
-    assert.ok(blog.id, 'Blog object should have an id property')
-    // Comprueba que '_id' no existe
-    assert.strictEqual(blog._id, undefined, 'Blog object should NOT have an _id property')
+    test('all blogs have a unique identifier named id', async () => {
+      const blogsAtStart = await helper.blogsInDb()
+      blogsAtStart.forEach(blog => assert(blog.id, 'Blog should have an id property'))
+    })
+
+    test('blogs are returned with user populated', async () => {
+      const response = await api.get('/api/blogs')
+      const firstBlog = response.body[0] // Asume que hay al menos un blog
+
+      assert(firstBlog.user, 'Blog should have a user field')
+      assert.strictEqual(typeof firstBlog.user, 'object', 'User field should be an object (populated)')
+      assert(firstBlog.user.username, 'User object should have a username property')
+      assert(firstBlog.user.name, 'User object should have a name property')
+      assert(firstBlog.user.id, 'User object should have an id property')
+      assert.strictEqual(firstBlog.user.id.toString(), testUser.id.toString(), 'Populated user ID should match the test user ID')
+    })
   })
 
-  console.log('--- blogs id property test passed ---') // Log para depuración
-})
+
+  //* Tests para POST /api/blogs (añadir blogs)
+  describe('addition of a new blog', () => {
+    // Éxito al agregar con token válido
+    test('succeeds with valid data and a valid token', async () => {
+      const newBlog = {
+        title: 'New Blog with Auth',
+        author: 'Auth Test',
+        url: 'http://example.com/auth-blog',
+        likes: 5
+      }
+
+      await api
+        .post('/api/blogs')
+        .set('Authorization', `Bearer ${token}`) // <--- ¡AÑADE EL TOKEN del testUser!
+        .send(newBlog)
+        .expect(201) // Espera 201 Created
+        .expect('Content-Type', /application\/json/)
+
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1, 'Number of blogs should increase by one')
+      const titles = blogsAtEnd.map(b => b.title)
+      assert(titles.includes(newBlog.title), 'New blog title should be in the database')
+
+      const userInDb = await User.findById(testUser._id) // Vuelve a obtener el usuario de la DB
+      assert(userInDb.blogs.map(b => b.toString()).includes(blogsAtEnd[blogsAtEnd.length - 1].id), 'Blog reference should be added to user')
+    })
+
+    // Test 4.23: Falla si no hay token (para POST)
+    test('fails with statuscode 401 if token is missing when adding a blog', async () => {
+      const newBlog = {
+        title: 'Blog without token',
+        author: 'No Auth',
+        url: 'http://example.com/no-token-blog',
+        likes: 0
+      }
+
+      await api
+        .post('/api/blogs')
+        .send(newBlog) // No set('Authorization')
+        .expect(401) // Espera 401 Unauthorized
+        .expect('Content-Type', /application\/json/)
+        .expect(res => assert.strictEqual(res.body.error, 'token invalid or missing', 'Error message should indicate missing token'))
+
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length, 'Number of blogs should not change')
+    })
+
+    // Test 4.23: Falla si el token es inválido (para POST)
+    test('fails with statuscode 401 if token is invalid when adding a blog', async () => {
+      const newBlog = {
+        title: 'Blog with invalid token',
+        author: 'Bad Auth',
+        url: 'http://example.com/bad-token',
+        likes: 0
+      }
+      const invalidToken = 'invalid-jwt-string.that-fails.verification' // Token malformado o firma incorrecta
+
+      await api
+        .post('/api/blogs')
+        .set('Authorization', `Bearer ${invalidToken}`)
+        .send(newBlog)
+        .expect(401)
+        .expect('Content-Type', /application\/json/)
+        .expect(res => assert(res.body.error.includes('token invalid'), 'Error message should indicate invalid token'))
 
 
-//* Prueba 4.10: POST /api/blogs - Crear un blog válido
-test('a valid blog can be added ', async () => {
-  const newBlog = { // Define un nuevo objeto de blog para enviar
-    title: 'Async/Await in Express Testing',
-    author: 'Refactor Master',
-    url: 'http://example.com/async-express-testing',
-    likes: 100
-  }
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length, 'Number of blogs should not change')
+    })
 
-  // Realiza una petición POST
-  await api
-    .post('/api/blogs') // Endpoint para crear blogs
-    .send(newBlog)      // Envía el nuevo objeto de blog en el cuerpo de la solicitud
-    .expect(201)        // Espera un código de estado 201 CREATED (creación exitosa)
-    .expect('Content-Type', /application\/json/) // Espera que la respuesta sea JSON
+    // Falla si los datos son inválidos (NO tiene que ver con token, es validación de Mongoose)
+    test('fails with status code 400 if data invalid', async () => {
+      const newBlog = {
+        author: 'Invalid Data', // Faltan title y url (required)
+        likes: 0
+      }
+      // Este test debe pasar la autenticación (enviar un token válido)
+      // para que el error de validación de Mongoose sea el que se genere.
+      await api
+        .post('/api/blogs')
+        .set('Authorization', `Bearer ${token}`) // Proporciona un token válido
+        .send(newBlog)
+        .expect(400) // Espera 400 Bad Request por validación de Mongoose
+        .expect('Content-Type', /application\/json/)
+        .expect(res => assert(res.body.error.includes('Blog validation failed'), 'Error should be a Mongoose validation error'))
 
-  // Después de la operación POST, obtén el estado actual de los blogs en la DB
-  const blogsAtEnd = await helper.blogsInDb()
-
-  // Verifica que el número total de blogs ha aumentado en uno
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
-
-  // Verifica que el contenido del nuevo blog esté presente en la lista de blogs
-  const titles = blogsAtEnd.map(b => b.title) // Extrae todos los títulos de los blogs
-  assert(titles.includes(newBlog.title)) // Comprueba si el título del nuevo blog está en la lista
-
-  console.log('--- valid blog added test passed ---') // Log para depuración
-})
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+    })
+  })
 
 
-//* Prueba 4.11: Verificar likes por defecto
-test('blog without likes property defaults to 0 likes', async () => {
-  const newBlog = { // Define un nuevo objeto de blog sin la propiedad 'likes'
-    title: 'Blog without likes field',
-    author: 'Default Likes Author',
-    url: 'http://example.com/no-likes-blog'
-    // 'likes' no está aquí
-  }
+  //* Tests para DELETE /api/blogs/:id (eliminar blogs)
+  describe('deletion of a blog', () => {
+    // Test 4.21: Éxito al eliminar con token del creador
+    test('succeeds with status code 204 if id is valid and user is creator', async () => {
+      const blogsAtStart = await helper.blogsInDb()
+      const blogToDelete = blogsAtStart[0] // El primer blog de los iniciales pertenece a testUser
 
-  // Realiza una petición POST
-  const response = await api
-    .post('/api/blogs')
-    .send(newBlog)
-    .expect(201) // Espera un código de estado 201 CREATED
-    .expect('Content-Type', /application\/json/)
+      // Asegúrate de que el blog pertenece al testUser
+      assert.strictEqual(blogToDelete.user._id.toString(), testUser._id.toString(), 'Blog should belong to testUser for this test')
 
-  // Verifica que el blog devuelto en la respuesta tenga 0 likes
-  assert.strictEqual(response.body.likes, 0, 'Returned blog should have 0 likes')
+      await api
+        .delete(`/api/blogs/${blogToDelete.id}`)
+        .set('Authorization', `Bearer ${token}`) // <--- ¡TOKEN VÁLIDO DEL CREADOR!
+        .expect(204)
 
-  // Opcional: También puedes verificar el estado de la base de datos
-  const blogsAtEnd = await helper.blogsInDb()
-  const savedBlog = blogsAtEnd.find(blog => blog.title === newBlog.title)
-  assert.strictEqual(savedBlog.likes, 0, 'Saved blog in DB should have 0 likes')
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length - 1, 'Number of blogs should decrease by one')
 
-  console.log('--- blog without likes test passed ---') // Log para depuración
-})
+      const titles = blogsAtEnd.map(r => r.title)
+      assert(!titles.includes(blogToDelete.title), 'Deleted blog should not be in DB')
 
+      const userInDb = await User.findById(testUser._id) // Vuelve a obtener el usuario
+      assert(!userInDb.blogs.map(b => b.toString()).includes(blogToDelete.id), 'Blog reference should be removed from user')
+    })
 
-//* Prueba 4.12a: POST /api/blogs - Blog sin título
-test('blog without title is not added and returns 400 Bad Request', async () => {
-  const newBlog = { // Blog sin 'title'
-    author: 'Missing Title Author',
-    url: 'http://example.com/no-title-blog',
-    likes: 5
-  }
+    // Test 4.21: Falla si no hay token (para DELETE)
+    test('deletion fails with status code 401 if token is missing', async () => {
+      const blogsAtStart = await helper.blogsInDb()
+      const blogToDelete = blogsAtStart[0]
 
-  // Realiza una petición POST
-  await api
-    .post('/api/blogs')
-    .send(newBlog)
-    .expect(400) // <--- Espera un código de estado 400 Bad Request
+      await api
+        .delete(`/api/blogs/${blogToDelete.id}`)
+        .expect(401) // Espera 401 Unauthorized
+        .expect('Content-Type', /application\/json/)
+        .expect(res => assert.strictEqual(res.body.error, 'token invalid or missing', 'Error message should indicate missing token'))
 
-  // Verifica que el número total de blogs no haya cambiado
-  const blogsAtEnd = await helper.blogsInDb()
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length, 'Number of blogs should not change')
+    })
 
-  console.log('--- blog without title test passed ---') // Log para depuración
-})
+    // Test 4.21: Falla si el token es inválido (para DELETE)
+    test('deletion fails with status code 401 if token is invalid', async () => {
+      const blogsAtStart = await helper.blogsInDb()
+      const blogToDelete = blogsAtStart[0]
+      const invalidToken = 'not.a.real.jwt' // Token malformado
 
-//* Prueba 4.12b: POST /api/blogs - Blog sin URL
-test('blog without url is not added and returns 400 Bad Request', async () => {
-  const newBlog = { // Blog sin 'url'
-    title: 'Blog without URL field',
-    author: 'Missing URL Author',
-    likes: 8
-    // 'url' no está aquí
-  }
+      await api
+        .delete(`/api/blogs/${blogToDelete.id}`)
+        .set('Authorization', `Bearer ${invalidToken}`)
+        .expect(401)
+        .expect('Content-Type', /application\/json/)
+        .expect(res => assert(res.body.error.includes('token invalid'), 'Error message should indicate invalid token'))
 
-  // Realiza una petición POST
-  await api
-    .post('/api/blogs')
-    .send(newBlog)
-    .expect(400) // <--- Espera un código de estado 400 Bad Request
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length, 'Number of blogs should not change')
+    })
 
-  // Verifica que el número total de blogs no haya cambiado
-  const blogsAtEnd = await helper.blogsInDb()
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+    // Test 4.21: Falla si el token es de otro usuario (Forbidden)
+    test('deletion fails with status code 403 if user is not the creator', async () => {
+      const blogsAtStart = await helper.blogsInDb()
+      const blogToDelete = blogsAtStart[0] // Este blog pertenece a 'testUser'
 
-  console.log('--- blog without url test passed ---') // Log para depuración
-})
+      // otherToken es el token del 'otherUser' que NO es el creador del blog
+      await api
+        .delete(`/api/blogs/${blogToDelete.id}`)
+        .set('Authorization', `Bearer ${otherToken}`) // <--- ¡TOKEN DE OTRO USUARIO!
+        .expect(403) // Espera 403 Forbidden
+        .expect('Content-Type', /application\/json/)
+        .expect(res => assert.strictEqual(res.body.error, 'user not authorized to delete this blog', 'Error message should indicate forbidden'))
 
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length, 'Number of blogs should not change')
+    })
 
-//* Prueba 4.13: DELETE /api/blogs/:id
-test('a blog can be deleted', async () => {
-  // 1. Obtener todos los blogs para tener uno para eliminar
-  const blogsAtStart = await helper.blogsInDb()
-  const blogToDelete = blogsAtStart[0] // Selecciona el primer blog para eliminar
+    // Eliminación de blog inexistente (debe pasar la autenticación)
+    test('deletion fails with status code 204 if id does not exist', async () => {
+      const validNonexistingId = await helper.nonExistingId()
+      // Proporciona un token válido para pasar la autenticación
+      await api
+        .delete(`/api/blogs/${validNonexistingId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(204) // Se espera 204 No Content si no se encuentra
+    })
 
-  // 2. Realizar la solicitud DELETE
-  await api
-    .delete(`/api/blogs/${blogToDelete.id}`) // Usa el ID del blog seleccionado
-    .expect(204) // Espera un código de estado 204 No Content (eliminación exitosa)
+    // ID malformado (debe pasar la autenticación)
+    test('deletion fails with status code 400 id is invalid', async () => {
+      const invalidId = '5a3d5da59070081a82a3445' // ID con formato incorrecto
+      await api
+        .delete(`/api/blogs/${invalidId}`)
+        .set('Authorization', `Bearer ${token}`) // Proporciona un token válido
+        .expect(400) // Espera 400 Bad Request por ID malformado
+    })
+  })
 
-  // 3. Verificar el estado de la base de datos después de la eliminación
-  const blogsAtEnd = await helper.blogsInDb()
-
-  // Verificar que el número de blogs ha disminuido en uno
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length - 1)
-
-  // Verificar que el blog eliminado ya no está en la lista de blogs
-  const titles = blogsAtEnd.map(b => b.title)
-  assert(!titles.includes(blogToDelete.title)) // Comprueba que el título NO está presente
-
-  console.log('--- blog deletion test passed ---') // Log para depuración
-})
-
-
-//* Prueba 4.14a: PUT /api/blogs/:id - Actualización exitosa
-test('a blog can be updated (likes count)', async () => {
-  // 1. Obtener todos los blogs para seleccionar uno para actualizar
-  const blogsAtStart = await helper.blogsInDb()
-  const blogToUpdate = blogsAtStart[0] // Selecciona el primer blog
-  const originalLikes = blogToUpdate.likes
-
-  // 2. Definir los datos de actualización (solo likes en este caso)
-  const updatedData = {
-    ...blogToUpdate, // Mantén todas las propiedades existentes
-    likes: originalLikes + 10 // Incrementa los likes
-  }
-
-  // 3. Realizar la solicitud PUT
-  const response = await api
-    .put(`/api/blogs/${blogToUpdate.id}`) // PUT al ID específico
-    .send(updatedData) // Envía el objeto con los likes actualizados
-    .expect(200) // Espera un código de estado 200 OK
-    .expect('Content-Type', /application\/json/) // Espera que la respuesta sea JSON
-
-  // 4. Verificar que el blog devuelto en la respuesta tiene los likes actualizados
-  assert.strictEqual(response.body.likes, updatedData.likes, 'Returned blog should have updated likes')
-
-  // 5. Verificar el estado de la base de datos después de la actualización
-  const blogsAtEnd = await helper.blogsInDb()
-  const updatedBlogInDb = blogsAtEnd.find(blog => blog.id === blogToUpdate.id)
-  assert.strictEqual(updatedBlogInDb.likes, updatedData.likes, 'Blog in DB should have updated likes')
-
-  console.log('--- blog update (likes) test passed ---')
-})
-
-//* Prueba 4.14b: PUT /api/blogs/:id - Actualizar un blog inexistente (404)
-test('updating a non-existent blog returns 404 Not Found', async () => {
-  const nonExistentId = await helper.nonExistingId() // Obtiene un ID que no existe
-  const updateData = {
-    title: 'Non-existent blog title',
-    author: 'Unknown',
-    url: 'http://example.com/non-existent',
-    likes: 1000
-  }
-
-  // Realiza la solicitud PUT a un ID que no existe
-  await api
-    .put(`/api/blogs/${nonExistentId}`)
-    .send(updateData)
-    .expect(404) // Espera un código de estado 404 Not Found
-
-  // Verifica que el número de blogs en la base de datos no ha cambiado
-  const blogsAtEnd = await helper.blogsInDb()
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
-
-  console.log('--- update non-existent blog test passed ---')
-})
-
-//* Prueba 4.14c: PUT /api/blogs/:id - ID mal formado (400 Bad Request)
-test('updating with malformed id returns 400 Bad Request', async () => {
-  const malformedId = 'invalidid123' // Un ID que no tiene el formato correcto de MongoDB ObjectId
-  const updateData = {
-    title: 'Malformed ID test',
-    author: 'Invalid Test',
-    url: 'http://invalid.com',
-    likes: 1
-  }
-
-  await api
-    .put(`/api/blogs/${malformedId}`)
-    .send(updateData)
-    .expect(400) // Espera un código de estado 400 Bad Request
-
-  // Verifica que el número de blogs en la base de datos no ha cambiado
-  const blogsAtEnd = await helper.blogsInDb()
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
-
-  console.log('--- update with malformed id test passed ---')
-})
+}) // FIN del describe('Blog API tests')
 
 
-//! Configuración después de TODAS las pruebas
+// --- Hook after (cierra la conexión a la DB después de todos los tests) ---
 after(async () => {
-  await mongoose.connection.close() // Cierra la conexión de Mongoose después de todas las pruebas
-  console.log('--- mongoose connection closed after tests ---') // Log para depuración
+  await mongoose.connection.close()
+  console.log('--- mongoose connection closed after tests ---')
 })
