@@ -94,20 +94,23 @@ blogsRouter.put('/:id', async (request, response, next) => {
     author: body.author,
     url: body.url,
     likes: body.likes,
+    user: body.user // Asegúrate de que el frontend envíe solo el ID del usuario aquí
   }
 
   try {
-    const updatedBlog = await Blog.findByIdAndUpdate(id, blog, { new: true, runValidators: true, context: 'query' })
+  // Asegúrate de poblar el campo 'user' si quieres que la respuesta del PUT también lo tenga
+  const updatedBlog = await Blog.findByIdAndUpdate(id, blog, { new: true, runValidators: true, context: 'query' })
+    .populate('user', { username: 1, name: 1 }) // <-- Opcional pero recomendado para consistencia con GET/POST
 
-    if (updatedBlog) {
-      response.json(updatedBlog)
-    } else {
-      response.status(404).end()
-    }
-
-  } catch (error) {
-    next(error)
+  if (updatedBlog) {
+    response.json(updatedBlog)
+  } else {
+    response.status(404).end()
   }
+
+} catch (error) {
+  next(error)
+}
 })
 
 module.exports = blogsRouter // Exporta el router
