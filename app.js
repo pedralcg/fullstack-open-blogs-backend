@@ -10,6 +10,15 @@ const usersRouter = require('./controllers/users')
 const loginRouter = require('./controllers/login')
 const blogsRouter = require('./controllers/blogs')
 
+
+//! --- ¡OJO! Monta el router de testing SOLO en modo de prueba ---
+if (process.env.NODE_ENV === 'test') {
+  console.log('--- NODE_ENV is test, enabling testing router ---');
+  const testingRouter = require('./controllers/testing')
+  app.use('/api/testing', testingRouter)
+}
+
+
 const middleware = require('./utils/middleware')
 const logger = require('./utils/logger')
 
